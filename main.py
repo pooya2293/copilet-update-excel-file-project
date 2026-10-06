@@ -1,5 +1,6 @@
 """Process demand rows, inventory matches, and in-transit orders."""
 
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -12,8 +13,8 @@ from tasks.open_order import import_in_transit_orders
 from tasks.remove import remove_demand_ranges
 from tasks.sales import update_sales_trend
 
-DEFAULT_WORKBOOK = Path(__file__).with_name("New-IC-Mashhad 05-07-09.xlsb")
-IN_TRANSIT_WORKBOOK = Path(__file__).with_name("در راه مشهد.xlsm")
+DEFAULT_WORKBOOK = Path(__file__).with_name("main.xlsb")
+IN_TRANSIT_WORKBOOK = Path(__file__).with_name("در راه.xlsm")
 INVENTORY_WORKBOOK = Path(__file__).with_name("inv.XLSX")
 SOURCE_SALES_WORKBOOK = Path(__file__).with_name("083.XLSX")
 TREND_WORKBOOK = Path(__file__).with_name("trend.xlsx")
@@ -116,6 +117,14 @@ def main(argv: list[str] | None = None) -> int:
                         finally:
                             if excel is not None:
                                 excel.Quit()
+    try:
+        os.startfile(str(workbook))
+    except OSError as error:
+        raise RuntimeError(
+            f"Processing finished, but could not open the final workbook: "
+            f"{workbook}"
+        ) from error
+    print(f"Opened final workbook: {workbook}")
     return 0
 
 
