@@ -211,6 +211,38 @@ def update_sales_trend(
         f"to sales-2 starting at row {first_empty_row}."
     )
 
+    # Add the next sales period and its trend lookup to the summary sheet.
+    try:
+        summary_sheet = destination_workbook.Worksheets("فروش تفکیکی")
+        last_summary_column = summary_sheet.Cells(
+            2, summary_sheet.Columns.Count
+        ).End(-4159).Column
+        previous_header_cell = summary_sheet.Cells(2, last_summary_column)
+        if previous_header_cell.Value2 is None or previous_header_cell.Value2 == "":
+            raise ValueError("Row 2 does not contain a last populated cell.")
+
+        new_column = last_summary_column + 1
+        new_header_cell = summary_sheet.Cells(2, new_column)
+        new_header_cell.FormulaR1C1 = "=RC[-1]+1"
+
+        formula_cell = summary_sheet.Cells(3, new_column)
+        formula_cell.Formula = (
+            '=IFERROR(VLOOKUP(A3,[trend.xlsx]trend!$A:$E,5,0),"")'
+        )
+        last_summary_row = summary_sheet.Cells(
+            summary_sheet.Rows.Count, 1
+        ).End(-4162).Row
+        if last_summary_row > 3:
+            summary_sheet.Range(
+                formula_cell,
+                summary_sheet.Cells(last_summary_row, new_column),
+            ).FillDown()
+    except Exception as error:
+        raise RuntimeError(
+            "Step 7 failed while adding the sales trend formula column "
+            f"to فروش تفکیکی: {error}"
+        ) from error
+
 
 def _find_slicer_cache(workbook: Any, caption: str) -> Any:
     """Return the cache for the slicer with the requested visible caption."""
