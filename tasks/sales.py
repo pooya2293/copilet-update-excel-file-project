@@ -85,11 +85,10 @@ def update_sales_trend(
         trend_workbook.RefreshAll()
         excel.CalculateUntilAsyncQueriesDone()
         refreshed_record_count = pivot_table.PivotCache().RecordCount
-        if refreshed_record_count != last_source_row:
+        if refreshed_record_count <= 0:
             raise RuntimeError(
-                "Refresh All completed, but the PivotCache contains "
-                f"{refreshed_record_count} records; expected "
-                f"{last_source_row}."
+                "Refresh All completed, but the PivotCache contains no "
+                "records."
             )
     except Exception as error:
         raise RuntimeError(

@@ -1,6 +1,5 @@
 """Process demand rows, inventory matches, and in-transit orders."""
 
-import os
 import shutil
 import sys
 from pathlib import Path
@@ -117,12 +116,26 @@ def main(argv: list[str] | None = None) -> int:
                         finally:
                             if excel is not None:
                                 excel.Quit()
+    final_excel = None
     try:
-        os.startfile(str(workbook))
-    except OSError as error:
+        final_excel = win32.DispatchEx("Excel.Application")
+        final_excel.Visible = False
+        final_excel.DisplayAlerts = False
+        final_excel.AutomationSecurity = 3
+        final_workbook = final_excel.Workbooks.Open(
+            Filename=str(workbook.resolve()),
+            UpdateLinks=0,
+        )
+        final_workbook.Activate()
+        final_excel.ScreenUpdating = True
+        final_excel.WindowState = -4143
+        final_excel.Visible = True
+    except Exception as error:
+        if final_excel is not None:
+            final_excel.Quit()
         raise RuntimeError(
-            f"Processing finished, but could not open the final workbook: "
-            f"{workbook}"
+            "Processing finished, but Excel could not display the final "
+            f"workbook {workbook}: {error}"
         ) from error
     print(f"Opened final workbook: {workbook}")
     return 0
