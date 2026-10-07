@@ -18,10 +18,12 @@ def import_in_transit_orders(
     if not sheet_names:
         raise ValueError("At least one source worksheet name must be provided.")
 
+    lookup_value = destination_workbook.Worksheets("1000").Range("C4").Value2
+    if lookup_value is None or not str(lookup_value).strip():
+        raise ValueError("Lookup cell 1000!C4 is blank.")
+
     destination_ws = destination_workbook.Worksheets(destination_sheet_name)
-    destination_ws.Range("F2:R1000").ClearContents()
-    destination_row = 2
-    copied_rows = 0
+    matching_rows_by_sheet = []
 
     for sheet_name in sheet_names:
         source_ws = source_workbook.Worksheets(sheet_name)
@@ -29,14 +31,32 @@ def import_in_transit_orders(
         if last_row < 2:
             continue
 
-        row_count = last_row - 1
-        source_range = source_ws.Range(f"A2:M{last_row}")
+        source_values = source_ws.Range(f"A2:M{last_row}").Value2
+        matching_rows = [
+            row
+            for row in source_values
+            if row[5] is not None
+            and str(row[5]).casefold() == str(lookup_value).casefold()
+        ]
+        if matching_rows:
+            matching_rows_by_sheet.append(matching_rows)
+
+    copied_rows = sum(len(rows) for rows in matching_rows_by_sheet)
+    if not copied_rows:
+        raise ValueError(
+            "No in-transit rows found with column F equal to "
+            f"1000!C4 value {lookup_value!r}. Destination was not changed."
+        )
+
+    destination_ws.Range("F2:R1000").ClearContents()
+    destination_row = 2
+    for matching_rows in matching_rows_by_sheet:
+        row_count = len(matching_rows)
         destination_range = destination_ws.Range(
             f"F{destination_row}:R{destination_row + row_count - 1}"
         )
-        destination_range.Value = source_range.Value
+        destination_range.Value = tuple(matching_rows)
         destination_row += row_count + 7
-        copied_rows += row_count
 
     print(
         f"Copied {copied_rows} row(s) to "
