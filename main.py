@@ -2,6 +2,8 @@
 
 import shutil
 import sys
+import traceback
+from datetime import datetime
 from pathlib import Path
 
 import win32com.client as win32
@@ -12,35 +14,48 @@ from tasks.open_order import import_in_transit_orders
 from tasks.remove import remove_demand_ranges
 from tasks.sales import update_sales_trend
 
-DEFAULT_WORKBOOK = Path(__file__).with_name("main.xlsb")
-IN_TRANSIT_WORKBOOK = Path(__file__).with_name("در راه.xlsm")
-INVENTORY_WORKBOOK = Path(__file__).with_name("inv.XLSX")
-SOURCE_SALES_WORKBOOK = Path(__file__).with_name("083.XLSX")
-TREND_WORKBOOK = Path(__file__).with_name("trend.xlsx")
+APP_DIR = (
+    Path(sys.executable).resolve().parent
+    if getattr(sys, "frozen", False)
+    else Path(__file__).resolve().parent
+)
+DEFAULT_WORKBOOK = APP_DIR / "1.xlsb"
+IN_TRANSIT_WORKBOOK = APP_DIR / "در راه.xlsm"
+INVENTORY_WORKBOOK = APP_DIR / "inv.XLSX"
+SOURCE_SALES_WORKBOOK = APP_DIR / "083.XLSX"
+TREND_WORKBOOK = APP_DIR / "trend.xlsx"
+ERROR_LOG = APP_DIR / "main-error.log"
+
+
+def report_failure(message: str, exit_code: int) -> int:
+    print(message, file=sys.stderr)
+    try:
+        with ERROR_LOG.open("a", encoding="utf-8") as error_log:
+            error_log.write(
+                f"\n[{datetime.now().astimezone().isoformat()}]\n"
+                f"{message}\n"
+            )
+    except OSError as error:
+        print(f"Could not write error log {ERROR_LOG}: {error}", file=sys.stderr)
+    return exit_code
 
 
 def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
     if len(arguments) > 1:
-        print("Usage: python main.py [workbook path]")
-        return 2
+        return report_failure("Usage: main.exe [workbook path]", 2)
 
     workbook = Path(arguments[0]) if arguments else DEFAULT_WORKBOOK
     if not workbook.is_file():
-        print(f"Workbook not found: {workbook}")
-        return 3
+        return report_failure(f"Workbook not found: {workbook}", 3)
     if not IN_TRANSIT_WORKBOOK.is_file():
-        print(f"Workbook not found: {IN_TRANSIT_WORKBOOK}")
-        return 3
+        return report_failure(f"Workbook not found: {IN_TRANSIT_WORKBOOK}", 3)
     if not INVENTORY_WORKBOOK.is_file():
-        print(f"Workbook not found: {INVENTORY_WORKBOOK}")
-        return 3
+        return report_failure(f"Workbook not found: {INVENTORY_WORKBOOK}", 3)
     if not SOURCE_SALES_WORKBOOK.is_file():
-        print(f"Workbook not found: {SOURCE_SALES_WORKBOOK}")
-        return 3
+        return report_failure(f"Workbook not found: {SOURCE_SALES_WORKBOOK}", 3)
     if not TREND_WORKBOOK.is_file():
-        print(f"Workbook not found: {TREND_WORKBOOK}")
-        return 3
+        return report_failure(f"Workbook not found: {TREND_WORKBOOK}", 3)
 
     backup_path = str(workbook) + ".bak"
     shutil.copy2(workbook, backup_path)
@@ -142,4 +157,18 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except Exception:
+        details = traceback.format_exc()
+        try:
+            with ERROR_LOG.open("a", encoding="utf-8") as error_log:
+                error_log.write(
+                    f"\n[{datetime.now().astimezone().isoformat()}]\n"
+                    f"{details}"
+                )
+        except OSError as error:
+            print(f"Could not write error log {ERROR_LOG}: {error}", file=sys.stderr)
+        print(details, file=sys.stderr, end="")
+        print(f"Detailed error log: {ERROR_LOG}", file=sys.stderr)
+        raise SystemExit(1)
