@@ -17,7 +17,7 @@ from tasks.date import increment_b1
 from tasks.inv import copy_inventory_matches
 from tasks.open_order import import_in_transit_orders
 from tasks.remove import remove_demand_ranges
-from tasks.sales import update_sales_trend
+from tasks.sales import update_sales_trend,convert_latest_sales_column_to_values
 
 APP_DIR = (
     Path(sys.executable).resolve().parent
@@ -170,6 +170,13 @@ def update_one_destination(
         trend_wb.Save()
         destination_wb.Save()
         print(f"Saved workbook: {workbook} (in {perf_counter() - save_started:.2f}s)")
+
+        # Convert the newly created sales column to values.
+        _run_timed_stage(
+            "Convert latest sales column to values",
+            lambda: convert_latest_sales_column_to_values(destination_wb, excel)
+        )
+
     finally:
         _close_workbook(destination_wb, label=workbook.name)
         destination_wb = None
@@ -422,6 +429,7 @@ def main(argv: list[str] | None = None) -> int:
             "Opened final workbook(s): "
             + ", ".join(path.name for path in successful_files)
         )
+
 
     return 1 if failed_files else 0
 
