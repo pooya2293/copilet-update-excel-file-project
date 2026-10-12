@@ -11,7 +11,7 @@ def import_in_transit_orders(
 ) -> None:
     """Copy F:R rows from open source sheets into an open destination workbook."""
     sheet_names = list(
-        ["کاله آمل", "کاله تهران", "سس ,مربا و برنج ", "نوشیدنی"]
+        ["کاله آمل", "کاله تهران", "سس", "نوشیدنی"]
         if source_sheet_names is None
         else source_sheet_names
     )

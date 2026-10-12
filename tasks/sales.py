@@ -98,7 +98,7 @@ def update_sales_trend(
 
     # Find the Plant slicer, select exactly the lookup plant, and verify it.
     try:
-        slicer_cache = _find_slicer_cache(trend_workbook, "Plant")
+        slicer_cache = _find_slicer_cache(trend_workbook, "Plant", "sales")
         items = slicer_cache.SlicerItems
         matching_items = []
         for index in range(1, items.Count + 1):
@@ -210,6 +210,60 @@ def update_sales_trend(
         f"to sales-2 starting at row {first_empty_row}."
     )
 
+      # Set the Plant slicer in trend.xlsx to the requested plant.
+    try:
+        slicer_cache = _find_slicer_cache(trend_workbook, "Plant", "trend")
+        items = slicer_cache.SlicerItems
+        matching_items = []
+
+        for index in range(1, items.Count + 1):
+            item = items.Item(index)
+            if (
+                str(item.Caption).strip().casefold()
+                == str(lookup_value).strip().casefold()
+                or str(item.Name).strip().casefold()
+                == str(lookup_value).strip().casefold()
+            ):
+                matching_items.append(item)
+
+        if len(matching_items) != 1:
+            raise ValueError(
+                f"Expected exactly one Plant item matching "
+                f"{lookup_value!r}; found {len(matching_items)}."
+            )
+
+        target_item = matching_items[0]
+        slicer_cache.ClearManualFilter()
+
+        for index in range(1, items.Count + 1):
+            item = items.Item(index)
+            if str(item.Name) != str(target_item.Name):
+                item.Selected = False
+
+        target_item.Selected = True
+
+        selected_items = [
+            items.Item(index)
+            for index in range(1, items.Count + 1)
+            if items.Item(index).Selected
+        ]
+
+        if (
+            len(selected_items) != 1
+            or str(selected_items[0].Name) != str(target_item.Name)
+        ):
+            raise RuntimeError(
+                f"Plant slicer did not apply {lookup_value!r}."
+            )
+
+        excel.CalculateUntilAsyncQueriesDone()
+
+    except Exception as error:
+        raise RuntimeError(
+            f"Failed to filter the Plant slicer before adding "
+            f"the sales column: {error}"
+        ) from error
+    
     # Add the next sales period and its trend lookup to the summary sheet.
     try:
         summary_sheet = destination_workbook.Worksheets("فروش تفکیکی")
@@ -222,7 +276,10 @@ def update_sales_trend(
 
         new_column = last_summary_column + 1
         new_header_cell = summary_sheet.Cells(2, new_column)
-        new_header_cell.FormulaR1C1 = "=RC[-1]+1"
+
+        new_header_cell.FormulaR1C1 = (
+            '=IF(TEXT(RC[-1]+1,"ddd")="Fri",RC[-1]+2,RC[-1]+1)'
+        )
 
         formula_cell = summary_sheet.Cells(3, new_column)
         formula_cell.Formula = (
@@ -243,13 +300,50 @@ def update_sales_trend(
         ) from error
 
 
-def _find_slicer_cache(workbook: Any, caption: str) -> Any:
-    """Return the cache for the slicer with the requested visible caption."""
+def _find_slicer_cache(
+    workbook: Any,
+    caption: str,
+    sheet_name: str,
+) -> Any:
+    """Return the slicer cache for a slicer on the requested worksheet."""
     caches = workbook.SlicerCaches
+
     for cache_index in range(1, caches.Count + 1):
         cache = caches.Item(cache_index)
+
         for slicer_index in range(1, cache.Slicers.Count + 1):
             slicer = cache.Slicers.Item(slicer_index)
-            if str(slicer.Caption).strip().casefold() == caption.casefold():
+
+            if (
+                str(slicer.Caption).strip().casefold()
+                == caption.strip().casefold()
+                and str(slicer.Shape.Parent.Name).strip().casefold()
+                == sheet_name.strip().casefold()
+            ):
                 return cache
-    raise ValueError(f"Slicer {caption!r} was not found.")
+
+    raise ValueError(
+        f"Slicer {caption!r} was not found on sheet {sheet_name!r}."
+    )
+
+def convert_latest_sales_column_to_values(destination_workbook,excel):
+    """Convert the latest sales column in فروش تفکیکی to values."""
+
+    summary_sheet = destination_workbook.Worksheets("فروش تفکیکی")
+
+    # find the last populated column in row 2
+    last_summary_column = summary_sheet.Cells(
+        2, summary_sheet.Columns.Count
+    ).End(-4159).Column 
+
+    # copy the entire column and paste it as values
+    column_range = summary_sheet.Columns(last_summary_column)
+    column_range.Copy()
+    column_range.PasteSpecial(Paste=-4163)  # xlPasteValues 
+
+    excel.CutCopyMode = False  # clear the clipboard
+
+    print(
+        f"Column {last_summary_column} in فروش تفکیکی "
+        "was converted to values and saved."
+    )

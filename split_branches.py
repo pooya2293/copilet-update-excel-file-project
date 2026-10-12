@@ -11,7 +11,16 @@ import win32com.client as win32
 # Settings
 # ==========================================
 
-APP_DIR = Path(__file__).resolve().parent
+import sys
+from pathlib import Path
+
+if getattr(sys, "frozen", False):
+    APP_DIR = Path(sys.executable).resolve().parent
+else:
+    APP_DIR = Path(__file__).resolve().parent
+
+SOURCE_FILE = APP_DIR / "در راه.xlsm"
+OUTPUT_DIR = APP_DIR / "Branches"
 
 SOURCE_FILE = APP_DIR / "در راه.xlsm"
 OUTPUT_DIR = APP_DIR / "Branches"
@@ -19,7 +28,7 @@ OUTPUT_DIR = APP_DIR / "Branches"
 SHEET_NAMES = [
     "کاله آمل",
     "کاله تهران",
-    "سس ,مربا و برنج ",
+    "سس",
     "نوشیدنی",
 ]
 

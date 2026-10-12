@@ -41,9 +41,9 @@ def copy_inventory_matches(
 
     used_range = destination_sheet.UsedRange
     last_destination_row = used_range.Row + used_range.Rows.Count - 1
-    destination_sheet.Range(f"B1:D{last_destination_row}").ClearContents()
+    destination_sheet.Range(f"B2:D{last_destination_row}").ClearContents()
     destination_sheet.Range(
-        f"B1:D{len(matching_rows)}"
+        f"B2:D{len(matching_rows) + 1}"
     ).Value2 = tuple(matching_rows)
 
     print(
